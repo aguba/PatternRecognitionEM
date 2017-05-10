@@ -1,8 +1,34 @@
-function [ mu, sig, w, count, initialMeanEstimate ] = EM_GMM( X, k, meanEstimate, showPlot )
+function [ mu, sig, w, count, initialMeanEstimate ] = EM_GMM_carryForwardImputation( X, k, meanEstimate, showPlot )
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
 x = X;
 N = size(x, 1);
+[m(:,1), m(:,2)] = find(isnan(x));
+mSize = size(m, 1);
+
+index = 0;
+for i = 1:N
+    if isnan(x(i,1))
+        index = i;
+        while isnan(x(index,1))
+            index = index - 1;
+            if index == 0
+                index = N;
+            end
+        end
+        x(i, 1) = x(index, 1);
+    end
+    if isnan(x(i,2))
+        index = i;
+        while isnan(x(index,2))
+            index = index - 1;
+            if index == 0
+                index = N;
+            end
+        end
+        x(i, 2) = x(index, 2);
+    end
+end
 
 %initial mean estimate
 if isempty(meanEstimate)
@@ -70,18 +96,6 @@ while (abs(muPrev - muSum) > threshold || abs(sigPrev - sigSum) > threshold || a
             sigSum = sigSum + p(j, i) * (x(j, :) - mu(i, :))'*(x(j, :) - mu(i, :));
         end       
         sig(:,:,i) = sigSum / pSum;
-    end
-    
-    if showPlot == true
-        scatter(x(:,1), x(:,2), 'filled');
-        hold on;
-        scatter(initialMeanEstimate(:,1), initialMeanEstimate(:,2), 72, 'xm', 'LineWidth', 2);
-        scatter(mu(:,1), mu(:,2), 24, 'g', 'filled');
-        for i = 1:k
-            ellipsePlot(mu(i,:), sig(:,:,i), 'g');
-        end
-        hold off;
-        pause(0.75);
     end
     
     muSum = sum(sum(mu));

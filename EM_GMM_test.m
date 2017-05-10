@@ -13,8 +13,8 @@ end
 initialMeanEstimate = mu;
 
 %initial covariance matrix estimate
-sig = zeros(k,2);
-sig(1:k,:) = repmat(var(x), k, 1);
+sig = zeros(2,2,k);
+sig(:,:,1:k) = repmat(cov(x),1,1,k);
 
 %initial gaussian weight estimate
 w(1:k) = repmat(1/k, 1, k);
@@ -43,7 +43,7 @@ while (abs(muPrev - muSum) > threshold || abs(sigPrev - sigSum) > threshold || a
     for i = 1:N
         pSum = 0;
         for j = 1:k
-            p(i, j) = w(j)*mvnpdf(x(i,:), mu(j,:), sig(j,:));
+            p(i, j) = w(j)*mvnpdf(x(i,:), mu(j,:), sig(:,:,j));
             pSum = pSum + p(i, j);
         end
 
@@ -67,14 +67,14 @@ while (abs(muPrev - muSum) > threshold || abs(sigPrev - sigSum) > threshold || a
         mu(i, :) = muSum / pSum;
         
         for j = 1:N
-            sigSum = sigSum + p(j, i) * (x(j, :) - mu(i, :)).^2;
+            sigSum = sigSum + p(j, i) * (x(j, :) - mu(i, :))'*(x(j, :) - mu(i, :));
         end       
-        sig(i, :) = sigSum / pSum;
+        sig(:,:,i) = sigSum / pSum;
         
     end
     
     muSum = sum(sum(mu));
-    sigSum = sum(sum(sig));
+    sigSum = sum(sum(sum(sig)));
     wSum = sum(w);
 end
 end

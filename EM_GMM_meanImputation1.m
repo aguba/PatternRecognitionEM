@@ -1,16 +1,26 @@
-function [ mu, sig, w, count, initialMeanEstimate ] = EM_GMM( X, k, meanEstimate, showPlot )
+function [ mu, sig, w, count, initialMeanEstimate, xc, m ] = EM_GMM_meanImputation1( X, k, meanEstimate )
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
 x = X;
+xo = x(sum(isnan(x),2) == 0, :);
+xc(:,:,1:k) = repmat(x,1,1,k);
 N = size(x, 1);
+No = size(xo, 1);
+
+[m(:,1), m(:,2)] = find(isnan(x));
+m = sortrows(m);
 
 %initial mean estimate
 if isempty(meanEstimate)
-    mu = x(randperm(N, k), :);
+    mu = xo(randperm(No, k), :);
 else
     mu = meanEstimate;
 end
 initialMeanEstimate = mu;
+
+for i = 1:size(m,1)
+    x(m(i,1), m(i,2)) = mu(1, m(i,2));
+end
 
 %initial covariance matrix estimate
 sig = zeros(2,2,k);
@@ -20,12 +30,13 @@ sig(:,:,1:k) = repmat(cov(x),1,1,k);
 w(1:k) = repmat(1/k, 1, k);
 
 
+
 muPrev = 0;
 sigPrev = 0;
 wPrev = 0;
 
 muSum = sum(sum(mu));
-sigSum = sum(sum(sig));
+sigSum = sum(sum(sum(sig)));
 wSum = sum(w);
 
 count = 0;
@@ -56,32 +67,32 @@ while (abs(muPrev - muSum) > threshold || abs(sigPrev - sigSum) > threshold || a
     %M-step
     %weights, means, and covariances
     for i = 1:k
+        for j = 1:size(m,1)
+            mum = mu(i,m(j,2));
+            muo = mu(i, abs(m(j,2) - 2) + 1);
+            sigmo = sig(1,2,i);
+            sigoo = sig(abs(m(j,2)-2)+1,abs(m(j,2)-2)+1, i);
+            xobserved = xc(m(j,1),abs(m(j,2)-2)+1,i);
+            xc(m(j,1), m(j,2), i) = mum + (sigmo / sigoo) * (xobserved - muo);
+        end
+    end
+    
+    for i = 1:k
         pSum = 0;
         muSum = 0;
         sigSum = 0;
         for j = 1:N
             pSum = pSum + p(j, i);
-            muSum = muSum + p(j, i) * x(j, :);
+            muSum = muSum + p(j, i) * xc(j, :, i);
         end
         w(i) = pSum / N;
         mu(i, :) = muSum / pSum;
         
         for j = 1:N
-            sigSum = sigSum + p(j, i) * (x(j, :) - mu(i, :))'*(x(j, :) - mu(i, :));
+            sigSum = sigSum + p(j, i) * (xc(j, :, i) - mu(i, :))'*(xc(j, :, i) - mu(i, :));
         end       
         sig(:,:,i) = sigSum / pSum;
-    end
-    
-    if showPlot == true
-        scatter(x(:,1), x(:,2), 'filled');
-        hold on;
-        scatter(initialMeanEstimate(:,1), initialMeanEstimate(:,2), 72, 'xm', 'LineWidth', 2);
-        scatter(mu(:,1), mu(:,2), 24, 'g', 'filled');
-        for i = 1:k
-            ellipsePlot(mu(i,:), sig(:,:,i), 'g');
-        end
-        hold off;
-        pause(0.75);
+        
     end
     
     muSum = sum(sum(mu));
